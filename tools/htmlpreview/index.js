@@ -1,11 +1,39 @@
-(function () {
+(() => {
+    const fetchProxy = (url, options, i) => {
+        const proxy = [
+            '', // try without proxy first
+            'https://api.codetabs.com/v1/proxy/?quest='
+        ];
+        return fetch(proxy[i] + url, options).then(res => {
+            if (!res.ok) throw new Error('Cannot load ' + url + ': ' + res.status + ' ' + res.statusText);
+            return res.text();
+        }).catch(error => {
+            if (i === proxy.length - 1) throw error;
+            return fetchProxy(url, options, i + 1);
+        })
+    };
+    const loadJS = data => {
+        if (data) {
+            const script = document.createElement('script');
+            script.txt = data;
+            console.log(script)
+            document.body.appendChild(script);
+        }
+    };
+    const loadCSS = data => {
+        if (data) {
+            const style = document.createElement('style');
+            style.innerHTML = data;
+            document.head.appendChild(style);
+        }
+    };
+    const previewForm = document.getElementById('preview');
+    const url = location.search.substring(1)
+        .replace(/\/\/github\.com/, '//raw.githubusercontent.com')
+        .replace(/\/blob\//, '/'); //Get URL of the raw file
 
-    var previewForm = document.getElementById('preview');
-
-    var url = location.search.substring(1).replace(/\/\/github\.com/, '//raw.githubusercontent.com').replace(/\/blob\//, '/'); //Get URL of the raw file
-
-    var replaceAssets = function () {
-        var frame, a, link, links = [], script, scripts = [], i, href, src;
+    const replaceAssets = () => {
+        let frame, a, link, links = [], script, scripts = [], i, href, src;
         //Framesets
         if (document.querySelectorAll('frameset').length)
             return; //Don't replace CSS/JS if it's a frameset, because it will be erased by document.write()
@@ -35,10 +63,8 @@
                 links.push(fetchProxy(href, null, 0)); //Then add it to links queue and fetch using CORS proxy
             }
         }
-        Promise.all(links).then(function (res) {
-            for (i = 0; i < res.length; ++i) {
-                loadCSS(res[i]);
-            }
+        Promise.all(links).then(res => {
+            res.forEach(item => loadCSS(item));
         });
         //Scripts
         script = document.querySelectorAll('script');
@@ -51,18 +77,16 @@
                 scripts.push(script[i].innerHTML); //Add inline script to queue to eval in order
             }
         }
-        Promise.all(scripts).then(function (res) {
-            for (i = 0; i < res.length; ++i) {
-                loadJS(res[i]);
-            }
+        Promise.all(scripts).then(res => {
+            res.forEach(item => loadJS(item));
             document.dispatchEvent(new Event('DOMContentLoaded', {bubbles: true, cancelable: true})); //Dispatch DOMContentLoaded event after loading all scripts
         });
     };
 
-    var loadHTML = function (data) {
+    const loadHTML = data => {
         if (data) {
             data = data.replace(/<head([^>]*)>/i, '<head$1><base href="' + url + '">');
-            setTimeout(function () {
+            setTimeout(() => {
                 document.open();
                 document.write(data);
                 document.close();
@@ -71,45 +95,14 @@
         }
     };
 
-    var loadCSS = function (data) {
-        if (data) {
-            var style = document.createElement('style');
-            style.innerHTML = data;
-            document.head.appendChild(style);
-        }
-    };
-
-    var loadJS = function (data) {
-        if (data) {
-            var script = document.createElement('script');
-            script.txt = data;
-            console.log(script)
-            document.body.appendChild(script);
-        }
-    };
-
-    var fetchProxy = function (url, options, i) {
-        var proxy = [
-            '', // try without proxy first
-            'https://api.codetabs.com/v1/proxy/?quest='
-        ];
-        return fetch(proxy[i] + url, options).then(function (res) {
-            if (!res.ok) throw new Error('Cannot load ' + url + ': ' + res.status + ' ' + res.statusText);
-            return res.text();
-        }).catch(function (error) {
-            if (i === proxy.length - 1)
-                throw error;
-            return fetchProxy(url, options, i + 1);
-        })
-    };
-
-    if (url && url.indexOf(location.hostname) < 0)
-        fetchProxy(url, null, 0).then(loadHTML).catch(function (error) {
+    if (url && url.indexOf(location.hostname) < 0) {
+        fetchProxy(url, null, 0).then(loadHTML).catch(error => {
             console.error(error);
             previewForm.style.display = 'block';
             previewForm.innerText = error;
         });
-    else
+    } else {
         previewForm.style.display = 'block';
+    }
 
 })()
